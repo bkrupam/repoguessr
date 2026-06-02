@@ -1,27 +1,405 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400&family=JetBrains+Mono:wght@400&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    box-sizing: border-box;
   }
-}
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  html,
+  body {
+    background-color: #000000;
+    color: #ffffff;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: #ffffff;
+    color: #000000;
+  }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    line-height: 1;
   }
+
+  .display-type {
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(2.75rem, 12vw, 5rem);
+    font-weight: 300;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .h1-type {
+    font-family: 'Inter', sans-serif;
+    font-size: 2.4rem;
+    font-weight: 400;
+    line-height: 1.1;
+  }
+
+  /* Hub date headline — fits one line inside max-w-lg */
+  .hub-date-headline {
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(1.5rem, 4vw, 2.4rem);
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 420px) {
+    .hub-date-headline {
+      white-space: normal;
+      font-size: 1.35rem;
+      line-height: 1.25;
+    }
+  }
+
+  .body-type {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
+
+  .code-type {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9375rem;
+    line-height: 1.65;
+  }
+
+  .action-type {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+
+  /* Inter — between h1 and body (section titles in sheets) */
+  .sheet-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  /* Inter — prominent stat values in cards */
+  .stat-type {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .hub-enter {
+    animation: hub-fade-in 0.55s ease-out both;
+  }
+}
+
+@keyframes hub-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Hub code visuals (daily / practice) ────────────────────────────────────── */
+
+.hub-visual-wrap {
+  width: 100%;
+  max-width: 18rem;
+  margin-bottom: 2rem;
+  flex-shrink: 0;
+}
+
+.hub-code-block {
+  width: 100%;
+  text-align: left;
+  background: #050505;
+  border: 1px solid #1a1a1a;
+  border-radius: 2px;
+  padding: 0.875rem 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.625rem;
+  line-height: 1.65;
+}
+
+.hub-code-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-height: 1.05rem;
+}
+
+.hub-ln {
+  flex-shrink: 0;
+  width: 1rem;
+  text-align: right;
+  color: #9a9a9a;
+  user-select: none;
+}
+
+.hub-ch {
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.hub-ch-muted {
+  color: #9a9a9a;
+}
+
+.hub-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 0.75rem;
+  margin-left: 1px;
+  background: #ffffff;
+  vertical-align: text-bottom;
+  animation: hub-cursor-blink 1s step-end infinite;
+}
+
+/* Daily: lines reveal top → bottom, then type the guess */
+.hub-daily-line {
+  opacity: 0;
+  filter: blur(4px);
+  animation: hub-line-reveal 8s ease-out infinite;
+}
+
+.hub-daily-line-1 {
+  animation-delay: 0s;
+}
+.hub-daily-line-2 {
+  animation-delay: 0.8s;
+}
+.hub-daily-line-3 {
+  animation-delay: 1.6s;
+}
+
+.hub-daily-type {
+  display: inline-block;
+  max-width: 0;
+  overflow: hidden;
+  vertical-align: bottom;
+  animation: hub-type-guess 8s steps(14) infinite;
+  animation-delay: 2.4s;
+}
+
+@keyframes hub-line-reveal {
+  0%,
+  8% {
+    opacity: 0;
+    filter: blur(4px);
+  }
+  18%,
+  72% {
+    opacity: 1;
+    filter: blur(0);
+  }
+  82%,
+  100% {
+    opacity: 0;
+    filter: blur(4px);
+  }
+}
+
+@keyframes hub-type-guess {
+  0%,
+  30% {
+    max-width: 0;
+  }
+  45%,
+  72% {
+    max-width: 12rem;
+  }
+  82%,
+  100% {
+    max-width: 0;
+  }
+}
+
+@keyframes hub-cursor-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Practice: rotate through language snippets + reveal bar (in-game metaphor) */
+.hub-code-block--practice {
+  position: relative;
+  min-height: 3.5rem;
+  overflow: hidden;
+}
+
+.hub-practice-stack {
+  position: relative;
+  min-height: 2.8rem;
+}
+
+.hub-snippet {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.hub-snippet--py {
+  animation: hub-snippet-show 12s ease-in-out infinite;
+  animation-delay: 0s;
+}
+
+.hub-snippet--rs {
+  animation: hub-snippet-show 12s ease-in-out infinite;
+  animation-delay: 3s;
+}
+
+.hub-snippet--ts {
+  animation: hub-snippet-show 12s ease-in-out infinite;
+  animation-delay: 6s;
+}
+
+.hub-snippet--go {
+  animation: hub-snippet-show 12s ease-in-out infinite;
+  animation-delay: 9s;
+}
+
+@keyframes hub-snippet-show {
+  0%,
+  4% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  8%,
+  21% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  25%,
+  100% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.hub-reveal-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 1px;
+  background: #9a9a9a;
+  animation: hub-reveal-progress 3s ease-in-out infinite;
+}
+
+@keyframes hub-reveal-progress {
+  0% {
+    width: 0;
+    opacity: 0.4;
+  }
+  50% {
+    width: 100%;
+    opacity: 1;
+  }
+  100% {
+    width: 100%;
+    opacity: 0.2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-enter,
+  .hub-daily-line,
+  .hub-daily-type,
+  .hub-cursor,
+  .hub-snippet,
+  .hub-reveal-bar {
+    animation: none !important;
+  }
+
+  .hub-daily-line,
+  .hub-snippet--py {
+    opacity: 1;
+    filter: none;
+    max-width: none;
+  }
+
+  .hub-daily-line-2,
+  .hub-daily-line-3,
+  .hub-snippet--rs,
+  .hub-snippet--ts,
+  .hub-snippet--go {
+    display: none;
+  }
+
+  .hub-daily-type {
+    max-width: 12rem;
+  }
+
+  .hub-cursor {
+    opacity: 1;
+  }
+
+  .hub-reveal-bar {
+    width: 60%;
+    opacity: 0.6;
+  }
+}
+
+/* Monochrome highlight.js theme — white/secondary only, no syntax colors */
+.hljs {
+  background: transparent;
+  color: #ffffff;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in,
+.hljs-name,
+.hljs-tag {
+  color: #ffffff;
+  font-weight: 400;
+}
+.hljs-string,
+.hljs-title,
+.hljs-section,
+.hljs-attribute,
+.hljs-literal,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-type,
+.hljs-addition {
+  color: #9a9a9a;
+}
+.hljs-comment,
+.hljs-quote,
+.hljs-deletion,
+.hljs-meta {
+  color: #9a9a9a;
+}
+.hljs-number,
+.hljs-regexp,
+.hljs-variable,
+.hljs-params {
+  color: #ffffff;
 }

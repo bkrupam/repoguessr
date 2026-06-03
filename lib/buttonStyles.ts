@@ -14,7 +14,7 @@ export function buttonClassName(
 
   const styles =
     variant === "primary"
-      ? "bg-white text-black rounded-lg hover:opacity-90"
+      ? "bg-white btn-on-primary rounded-lg hover:opacity-90"
       : disabled
         ? "bg-transparent text-[#2A2A2A] border border-[#2A2A2A] rounded-lg cursor-not-allowed"
         : "bg-transparent text-white border border-[#9A9A9A] rounded-lg hover:border-white";

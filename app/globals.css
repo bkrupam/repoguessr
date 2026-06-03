@@ -110,6 +110,11 @@
   .hub-enter {
     animation: hub-fade-in 0.55s ease-out both;
   }
+
+  /* Primary button label — must stay black on white (design on-primary) */
+  .btn-on-primary {
+    color: #000000;
+  }
 }
 
 @keyframes hub-fade-in {

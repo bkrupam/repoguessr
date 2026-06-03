@@ -8,7 +8,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = "ghost", size = "lg", className = "", children, disabled, ...props }, ref) => {
+  ({ variant = "ghost", size = "lg", className = "", children, disabled, type = "button", ...props }, ref) => {
     const sizeClass =
       size === "lg"
         ? "action-type min-h-[3.25rem] px-6 py-4"
@@ -27,6 +27,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
+        type={type}
         disabled={disabled}
         className={`${base} ${styles} ${className}`}
         {...props}

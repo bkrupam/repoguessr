@@ -6,6 +6,7 @@ import Button from "@/components/Button";
 import DailyResultCard from "@/components/DailyResultCard";
 import HubPageShell from "@/components/HubPageShell";
 import HubVisual from "@/components/HubVisual";
+import DailyHubStats from "@/components/DailyHubStats";
 import {
   loadDailyState,
   saveDailyState,
@@ -92,28 +93,13 @@ export default function DailyPage() {
         </p>
       </header>
 
-      <div className="w-full flex flex-col items-center gap-6 mb-8">
-        {(streak > 0 || freezes > 0) && (
-          <div className="w-full bg-[#050505] border border-[#1a1a1a] rounded-lg p-6 flex flex-col gap-2 items-center">
-            {streak > 0 && (
-              <p className="body-type text-[#9A9A9A]">
-                Streak{" "}
-                <span className="text-white">
-                  {streak} day{streak === 1 ? "" : "s"}
-                </span>
-              </p>
-            )}
-            {freezes > 0 && (
-              <p className="label text-[#9A9A9A]">FREEZE ×{freezes}</p>
-            )}
-          </div>
-        )}
-
-        <div className="w-full bg-[#050505] border border-[#1a1a1a] rounded-lg p-6 flex flex-col gap-2 items-center">
-          <p className="label text-[#9A9A9A]">WEEK {weekLabel}</p>
-          <p className="stat-type text-white tabular-nums">{weeklyScore}</p>
-          <p className="label text-[#9A9A9A]">WEEKLY SCORE</p>
-        </div>
+      <div className="w-full mb-8">
+        <DailyHubStats
+          streak={streak}
+          freezes={freezes}
+          weeklyScore={weeklyScore}
+          weekLabel={weekLabel}
+        />
       </div>
 
       <div className="w-full flex flex-col items-center gap-4">

@@ -26,7 +26,7 @@ import {
   calcRevealBatches,
   calcConfidencePercent,
 } from "@/lib/score";
-import { decodeChallenge } from "@/lib/challenge";
+import { decodeChallenge, fetchChallenge } from "@/lib/challenge";
 import { recordArchiveEntry, loadArchive, saveArchive } from "@/lib/archive";
 import { recordWeeklyScore, loadWeeklyState, saveWeeklyState } from "@/lib/weekly";
 
@@ -58,7 +58,13 @@ export default function GamePage() {
   const loadSnippet = useCallback(
     async (
       gameMode: "daily" | "practice",
-      opts?: { puzzle?: number; lang?: string; encoded?: string; resetRound?: boolean }
+      opts?: {
+        puzzle?: number;
+        lang?: string;
+        encoded?: string;
+        challengeId?: string;
+        resetRound?: boolean;
+      }
     ) => {
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -86,6 +92,17 @@ export default function GamePage() {
       setRevealUses(0);
 
       try {
+        if (opts?.challengeId) {
+          const payload = await fetchChallenge(opts.challengeId);
+          if (!payload) throw new Error("Invalid or expired challenge link");
+          if (loadId !== loadIdRef.current) return;
+          setSnippet(payload.snippet);
+          roundStartedAtRef.current = Date.now();
+          setChallengeMeta({ challengerScore: payload.challengerScore });
+          setMode("practice");
+          return;
+        }
+
         if (opts?.encoded) {
           const payload = decodeChallenge(opts.encoded);
           if (!payload) throw new Error("Invalid challenge link");
@@ -144,6 +161,11 @@ export default function GamePage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const challengeId = params.get("c");
+    if (challengeId) {
+      loadSnippet("practice", { challengeId });
+      return;
+    }
     const encoded = params.get("snippet");
     if (encoded) {
       loadSnippet("practice", { encoded });

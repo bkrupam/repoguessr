@@ -26,7 +26,7 @@ import {
   msUntilNextDaily,
   formatCountdown,
 } from "@/lib/daily";
-import { encodeChallenge } from "@/lib/challenge";
+import { createChallenge, encodeChallenge } from "@/lib/challenge";
 import { Difficulty } from "@/lib/difficulty";
 import { buildShareImageUrl } from "@/lib/share";
 
@@ -55,6 +55,7 @@ export default function ResultPage() {
   const [newMilestones, setNewMilestones] = useState<Milestone[]>([]);
   const [countdown, setCountdown] = useState("");
   const [challengeCopied, setChallengeCopied] = useState(false);
+  const [challengeLoading, setChallengeLoading] = useState(false);
 
   useEffect(() => {
     let data: ResultData | null = null;
@@ -185,16 +186,35 @@ export default function ResultPage() {
       : "";
 
   async function handleChallenge() {
-    const encoded = encodeChallenge({
-      snippet,
-      challengerScore: roundScore,
-    });
-    const url = `${window.location.origin}/game?snippet=${encodeURIComponent(encoded)}`;
+    if (challengeLoading) return;
+    setChallengeLoading(true);
     try {
+      const payload = { snippet, challengerScore: roundScore };
+      const created = await createChallenge(payload);
+      let url: string;
+      if ("id" in created) {
+        url = `${window.location.origin}/game?c=${created.id}`;
+      } else {
+        const encoded = encodeChallenge(payload);
+        url = `${window.location.origin}/game?snippet=${encodeURIComponent(encoded)}`;
+      }
       await navigator.clipboard.writeText(url);
       setChallengeCopied(true);
       setTimeout(() => setChallengeCopied(false), 1500);
-    } catch {}
+    } catch {
+      const encoded = encodeChallenge({
+        snippet,
+        challengerScore: roundScore,
+      });
+      const url = `${window.location.origin}/game?snippet=${encodeURIComponent(encoded)}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        setChallengeCopied(true);
+        setTimeout(() => setChallengeCopied(false), 1500);
+      } catch {}
+    } finally {
+      setChallengeLoading(false);
+    }
   }
 
   return (
@@ -358,7 +378,11 @@ export default function ResultPage() {
                   className="flex-1"
                   onClick={handleChallenge}
                 >
-                  {challengeCopied ? "COPIED" : "CHALLENGE"}
+                  {challengeLoading
+                    ? "…"
+                    : challengeCopied
+                    ? "COPIED"
+                    : "CHALLENGE"}
                 </Button>
                 <Link href="/game" className="flex-1">
                   <Button variant="ghost" className="w-full">
@@ -378,7 +402,11 @@ export default function ResultPage() {
                   className="flex-1"
                   onClick={handleChallenge}
                 >
-                  {challengeCopied ? "COPIED" : "CHALLENGE"}
+                  {challengeLoading
+                    ? "…"
+                    : challengeCopied
+                    ? "COPIED"
+                    : "CHALLENGE"}
                 </Button>
                 <div className="flex-1">
                   <ShareCard

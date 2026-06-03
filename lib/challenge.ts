@@ -29,3 +29,38 @@ export function decodeChallenge(encoded: string): ChallengePayload | null {
     return null;
   }
 }
+
+export async function createChallenge(
+  payload: ChallengePayload
+): Promise<{ id: string } | { error: string }> {
+  const res = await fetch("/api/challenge", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return {
+      error:
+        typeof data.error === "string"
+          ? data.error
+          : "Could not create challenge link",
+    };
+  }
+  if (typeof data.id !== "string") {
+    return { error: "Could not create challenge link" };
+  }
+  return { id: data.id };
+}
+
+export async function fetchChallenge(
+  id: string
+): Promise<ChallengePayload | null> {
+  const res = await fetch(
+    `/api/challenge?id=${encodeURIComponent(id)}`
+  );
+  if (!res.ok) return null;
+  const data = (await res.json()) as ChallengePayload;
+  if (!data?.snippet?.lines?.length) return null;
+  return data;
+}

@@ -48,6 +48,7 @@
     font-size: 2.4rem;
     font-weight: 400;
     line-height: 1.1;
+    letter-spacing: -0.02em;
   }
 
   /* Hub date headline — fits one line inside max-w-lg */
@@ -328,13 +329,102 @@
   }
 }
 
+/* ── Landing page layout ───────────────────────────────────────────────────── */
+
+.landing-wrap {
+  width: 100%;
+  max-width: 72rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .landing-wrap {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .landing-wrap {
+    padding-left: 3rem;
+    padding-right: 3rem;
+  }
+}
+
+.landing-section {
+  padding-top: 5rem;
+  padding-bottom: 5rem;
+}
+
+@media (min-width: 1024px) {
+  .landing-section {
+    padding-top: 7rem;
+    padding-bottom: 7rem;
+  }
+}
+
+/* ── Landing hero matrix rain (full-section background) ─────────────────────── */
+
+.landing-hero {
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  /* Full viewport below sticky nav (matches hub shell offset) */
+  min-height: calc(100dvh - 5.75rem);
+}
+
+.landing-hero-content {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.landing-matrix-rain {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.36;
+}
+
+.landing-matrix-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.landing-matrix-static {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  padding: 1rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 14px;
+  color: #9a9a9a;
+  align-content: start;
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hub-enter,
   .hub-daily-line,
   .hub-daily-type,
   .hub-cursor,
   .hub-snippet,
-  .hub-reveal-bar {
+  .hub-reveal-bar,
+  .landing-matrix-canvas {
     animation: none !important;
   }
 

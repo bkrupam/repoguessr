@@ -12,9 +12,11 @@ interface ShareCardProps {
   frameworkGuess: string;
   frameworkCorrect: boolean;
   badges: Badge[];
-  /** If provided, this exact text is copied instead of the practice card. */
+  /** Share image URL — copied to clipboard on share when supported. */
+  imageUrl?: string;
+  /** Fallback plain text if image copy fails. */
   overrideText?: string;
-  label?: string; // button label, defaults to SHARE
+  label?: string;
 }
 
 function buildShareText(props: ShareCardProps): string {
@@ -55,30 +57,62 @@ function buildShareText(props: ShareCardProps): string {
     .join("\n");
 }
 
+async function copyImageToClipboard(imageUrl: string): Promise<boolean> {
+  const res = await fetch(imageUrl);
+  if (!res.ok) return false;
+  const blob = await res.blob();
+  const type = blob.type || "image/png";
+  if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
+    return false;
+  }
+  await navigator.clipboard.write([new ClipboardItem({ [type]: blob })]);
+  return true;
+}
+
 export default function ShareCard(props: ShareCardProps) {
   const [copied, setCopied] = useState(false);
+  const [copiedMode, setCopiedMode] = useState<"image" | "text">("image");
 
   async function handleCopy() {
     const text = props.overrideText ?? buildShareText(props);
+
+    if (props.imageUrl) {
+      try {
+        const ok = await copyImageToClipboard(props.imageUrl);
+        if (ok) {
+          setCopiedMode("image");
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+          return;
+        }
+      } catch {
+        /* fall through to text */
+      }
+    }
+
     try {
       await navigator.clipboard.writeText(text);
+      setCopiedMode("text");
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Clipboard API not available (http, old browser)
+      /* clipboard unavailable */
     }
   }
 
   return (
     <>
-      <Button variant="ghost" onClick={handleCopy} className="w-full">
-        {copied ? "COPIED" : props.label ?? "SHARE"}
+      <Button type="button" variant="ghost" onClick={handleCopy} className="w-full">
+        {copied
+          ? copiedMode === "image"
+            ? "IMAGE COPIED"
+            : "COPIED"
+          : props.label ?? "SHARE"}
       </Button>
 
-      {/* Toast */}
       {copied && (
         <div className="fixed top-6 right-6 z-[100] label text-white border border-white px-4 py-2 bg-black rounded-lg pointer-events-none">
-          COPIED
+          {copiedMode === "image" ? "IMAGE COPIED" : "COPIED"}
         </div>
       )}
     </>

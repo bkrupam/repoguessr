@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.8",
     "@octokit/rest": "^22.0.1",
     "highlight.js": "^11.11.1",
     "next": "14.2.35",

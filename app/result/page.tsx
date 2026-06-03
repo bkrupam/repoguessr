@@ -28,6 +28,7 @@ import {
 } from "@/lib/daily";
 import { encodeChallenge } from "@/lib/challenge";
 import { Difficulty } from "@/lib/difficulty";
+import { buildShareImageUrl } from "@/lib/share";
 
 interface ResultData {
   resultId: number;
@@ -44,6 +45,7 @@ interface ResultData {
   revealStep?: number;
   difficulty?: Difficulty;
   challengeMeta?: { challengerScore?: number } | null;
+  elapsedMs?: number;
   newMilestones?: Milestone[];
 }
 
@@ -166,11 +168,20 @@ export default function ResultPage() {
         ) + `\nSCORE ${roundScore}`
       : undefined;
 
-  const ogUrl =
+  const shareImageUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/api/og?score=${roundScore}&reveals=${linesRevealed}${
-          result.puzzle ? `&puzzle=${result.puzzle}` : ""
-        }&badges=${roundBadges.slice(0, 3).join("+")}`
+      ? buildShareImageUrl(window.location.origin, {
+          guess: guesses.language,
+          actual: snippet.language,
+          languageCorrect: langCorrect,
+          linesRevealed,
+          elapsedMs: result.elapsedMs ?? 0,
+          roundBadges,
+          newMilestones,
+          puzzle: result.puzzle,
+          score: roundScore,
+          streak: dailyStreak,
+        })
       : "";
 
   async function handleChallenge() {
@@ -312,19 +323,6 @@ export default function ResultPage() {
           </div>
         </div>
 
-        {ogUrl && (
-          <div className="pb-4">
-            <a
-              href={ogUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="label text-[#9A9A9A] hover:text-white transition-colors"
-            >
-              PREVIEW SHARE CARD →
-            </a>
-          </div>
-        )}
-
         {isDaily && (
           <div className="pb-4 flex flex-col items-center gap-2">
             <span className="label text-[#9A9A9A]">NEXT PUZZLE IN</span>
@@ -350,6 +348,7 @@ export default function ResultPage() {
                     frameworkGuess={guesses.framework}
                     frameworkCorrect={fwCorrect}
                     badges={roundBadges}
+                    imageUrl={shareImageUrl}
                     overrideText={dailyShareText}
                     label="SHARE RESULT"
                   />
@@ -390,7 +389,9 @@ export default function ResultPage() {
                     frameworkGuess={guesses.framework}
                     frameworkCorrect={fwCorrect}
                     badges={roundBadges}
+                    imageUrl={shareImageUrl}
                     overrideText={`REPOGUESSR\nSCORE ${roundScore}\n${linesRevealed} LINES`}
+                    label="SHARE"
                   />
                 </div>
               </>

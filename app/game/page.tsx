@@ -20,7 +20,7 @@ import {
   getDifficultyConfig,
   Difficulty,
 } from "@/lib/difficulty";
-import { getHintForLanguage } from "@/lib/hints";
+import { getRoundHint } from "@/lib/hints";
 import {
   calcRoundScore,
   calcRevealBatches,
@@ -51,19 +51,31 @@ export default function GamePage() {
     challengerScore?: number;
   } | null>(null);
   const hintIndicesRef = useRef<number[]>([]);
+  const loadIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const roundStartedAtRef = useRef<number | null>(null);
 
   const loadSnippet = useCallback(
     async (
       gameMode: "daily" | "practice",
-      opts?: { puzzle?: number; lang?: string; encoded?: string }
+      opts?: { puzzle?: number; lang?: string; encoded?: string; resetRound?: boolean }
     ) => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      const loadId = ++loadIdRef.current;
+
+      const resetRound = opts?.resetRound !== false;
       setLoading(true);
       setError(null);
-      setShowGuessPanel(false);
-      setHintText(null);
-      setHintUsed(false);
-      hintIndicesRef.current = [];
-      setSnippet(null);
+      if (resetRound) {
+        setShowGuessPanel(false);
+        setHintText(null);
+        setHintUsed(false);
+        hintIndicesRef.current = [];
+        setSnippet(null);
+        roundStartedAtRef.current = null;
+      }
 
       const diff = loadDifficulty();
       const cfg = getDifficultyConfig(diff);
@@ -77,7 +89,9 @@ export default function GamePage() {
         if (opts?.encoded) {
           const payload = decodeChallenge(opts.encoded);
           if (!payload) throw new Error("Invalid challenge link");
+          if (loadId !== loadIdRef.current) return;
           setSnippet(payload.snippet);
+          roundStartedAtRef.current = Date.now();
           setChallengeMeta({ challengerScore: payload.challengerScore });
           setMode("practice");
           return;
@@ -85,13 +99,17 @@ export default function GamePage() {
 
         if (gameMode === "daily") {
           const q = opts?.puzzle ? `?puzzle=${opts.puzzle}` : "";
-          const res = await fetch(`/api/daily${q}`);
+          const res = await fetch(`/api/daily${q}`, {
+            signal: controller.signal,
+          });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
             throw new Error(data.error ?? `HTTP ${res.status}`);
           }
           const data: DailySnippet = await res.json();
+          if (loadId !== loadIdRef.current) return;
           setSnippet(data);
+          roundStartedAtRef.current = Date.now();
           if (typeof caches !== "undefined") {
             caches.open("repoguessr-daily-v1").then((cache) => {
               cache.put("/api/daily-today", new Response(JSON.stringify(data)));
@@ -101,19 +119,24 @@ export default function GamePage() {
           const params = new URLSearchParams();
           if (opts?.lang) params.set("lang", opts.lang);
           const res = await fetch(
-            `/api/snippet${params.toString() ? `?${params}` : ""}`
+            `/api/snippet${params.toString() ? `?${params}` : ""}`,
+            { signal: controller.signal }
           );
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
             throw new Error(data.error ?? `HTTP ${res.status}`);
           }
           const data: DailySnippet = await res.json();
+          if (loadId !== loadIdRef.current) return;
           setSnippet(data);
+          roundStartedAtRef.current = Date.now();
         }
       } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        if (loadId !== loadIdRef.current) return;
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
-        setLoading(false);
+        if (loadId === loadIdRef.current) setLoading(false);
       }
     },
     []
@@ -148,8 +171,8 @@ export default function GamePage() {
 
   function handleHint() {
     if (!snippet || hintUsed) return;
-    const hint = getHintForLanguage(snippet.language, hintIndicesRef.current);
-    hintIndicesRef.current.push(hintIndicesRef.current.length);
+    const hint = getRoundHint(hintIndicesRef.current);
+    hintIndicesRef.current = [...hintIndicesRef.current, hintIndicesRef.current.length];
     setHintText(hint);
     setHintUsed(true);
   }
@@ -238,6 +261,10 @@ export default function GamePage() {
       });
     }
 
+    const elapsedMs = roundStartedAtRef.current
+      ? Date.now() - roundStartedAtRef.current
+      : 0;
+
     try {
       sessionStorage.setItem(
         "repoguessr_result",
@@ -256,6 +283,7 @@ export default function GamePage() {
           revealStep,
           difficulty,
           challengeMeta,
+          elapsedMs,
           newMilestones: [],
         })
       );
@@ -372,11 +400,14 @@ export default function GamePage() {
         </div>
       </header>
 
-      <main className="pt-[9.5rem] pb-40 px-6 max-w-3xl mx-auto">
+      <main
+        className={`pb-40 px-6 max-w-3xl mx-auto transition-[padding] ${
+          hintText ? "pt-[12rem]" : "pt-[9.5rem]"
+        }`}
+      >
         <CodeBlock
           lines={snippet.lines}
           revealedCount={revealedCount}
-          language={snippet.language}
         />
       </main>
 
@@ -389,6 +420,7 @@ export default function GamePage() {
             <div className="bg-[#050505] border border-[#1a1a1a] rounded-lg p-4 flex flex-col sm:flex-row gap-3">
               {!hintUsed && (
                 <Button
+                  type="button"
                   variant="ghost"
                   size="lg"
                   onClick={handleHint}
@@ -398,6 +430,7 @@ export default function GamePage() {
                 </Button>
               )}
               <Button
+                type="button"
                 variant="ghost"
                 size="lg"
                 onClick={handleReveal}
@@ -407,6 +440,7 @@ export default function GamePage() {
                 {revealLabel}
               </Button>
               <Button
+                type="button"
                 variant="primary"
                 size="lg"
                 onClick={() => setShowGuessPanel(true)}

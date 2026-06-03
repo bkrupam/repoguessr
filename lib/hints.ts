@@ -54,6 +54,7 @@ const GENERIC_HINTS = [
   "Consider whether the code is compiled or interpreted.",
 ];
 
+/** @deprecated Use getRoundHint — must not pass the answer language during play */
 export function getHintForLanguage(language: string, usedIndices: number[]): string {
   const pool = LANGUAGE_HINTS[language] ?? GENERIC_HINTS;
   const available = pool.map((_, i) => i).filter((i) => !usedIndices.includes(i));
@@ -62,4 +63,16 @@ export function getHintForLanguage(language: string, usedIndices: number[]): str
       ? available[Math.floor(Math.random() * available.length)]
       : Math.floor(Math.random() * pool.length);
   return pool[idx];
+}
+
+/** Hint for an in-progress round — generic only, never keyed to the answer language. */
+export function getRoundHint(usedIndices: number[]): string {
+  const available = GENERIC_HINTS.map((_, i) => i).filter(
+    (i) => !usedIndices.includes(i)
+  );
+  const idx =
+    available.length > 0
+      ? available[Math.floor(Math.random() * available.length)]
+      : Math.floor(Math.random() * GENERIC_HINTS.length);
+  return GENERIC_HINTS[idx];
 }

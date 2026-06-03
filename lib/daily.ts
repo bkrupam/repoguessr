@@ -1,8 +1,8 @@
 import { Badge } from "./badges";
 
 // Launch epoch — puzzle #1 is this day (UTC). Adjust if you want a different start.
-const EPOCH_UTC = Date.UTC(2026, 0, 1); // 2026-01-01
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const EPOCH_UTC = Date.UTC(2026, 0, 1); // 2026-01-01
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Whole days elapsed since the epoch, in UTC. */
 export function daysSinceEpoch(now: Date = new Date()): number {
@@ -85,6 +85,8 @@ export interface DailyState {
   currentStreak: number;
   maxStreak: number;
   lastResult: DailyResult | null;
+  streakFreezes: number;
+  lastFreezeEarnedStreak: number;
 }
 
 export const DEFAULT_DAILY_STATE: DailyState = {
@@ -92,6 +94,8 @@ export const DEFAULT_DAILY_STATE: DailyState = {
   currentStreak: 0,
   maxStreak: 0,
   lastResult: null,
+  streakFreezes: 0,
+  lastFreezeEarnedStreak: 0,
 };
 
 const STORAGE_KEY = "repoguessr_daily";
@@ -137,12 +141,46 @@ export function recordDailyCompletion(
   const currentStreak = continues ? state.currentStreak + 1 : 1;
   const maxStreak = Math.max(state.maxStreak, currentStreak);
 
+  let streakFreezes = state.streakFreezes ?? 0;
+  let lastFreezeEarnedStreak = state.lastFreezeEarnedStreak ?? 0;
+  if (
+    currentStreak >= 7 &&
+    currentStreak > lastFreezeEarnedStreak &&
+    currentStreak % 7 === 0
+  ) {
+    streakFreezes += 1;
+    lastFreezeEarnedStreak = currentStreak;
+  }
+
   return {
     lastPlayedPuzzle: today,
     currentStreak,
     maxStreak,
     lastResult: result,
+    streakFreezes,
+    lastFreezeEarnedStreak,
   };
+}
+
+/** Apply streak freeze if user missed exactly one day. Call on daily hub load. */
+export function applyStreakFreezeIfNeeded(
+  state: DailyState,
+  now: Date = new Date()
+): DailyState {
+  const today = puzzleNumber(now);
+  const missedOne =
+    state.lastPlayedPuzzle > 0 &&
+    state.lastPlayedPuzzle < today - 1 &&
+    state.lastPlayedPuzzle === today - 2;
+  const freezes = state.streakFreezes ?? 0;
+  if (missedOne && freezes > 0) {
+    return {
+      ...state,
+      lastPlayedPuzzle: today - 1,
+      streakFreezes: freezes - 1,
+    };
+  }
+  return state;
 }
 
 // ─── Share grid ─────────────────────────────────────────────────────────────────

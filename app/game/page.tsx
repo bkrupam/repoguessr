@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CodeBlock from "@/components/CodeBlock";
-import GuessPanel, { Guesses } from "@/components/GuessPanel";
+import GuessPanel, { Guesses, ALL_LANGUAGES } from "@/components/GuessPanel";
 import Button from "@/components/Button";
 import MatrixLoader from "@/components/MatrixLoader";
 import { Snippet } from "@/lib/github";
@@ -13,10 +13,22 @@ import {
   loadDailyState,
   recordDailyCompletion,
   DailyResult,
+  saveDailyState,
 } from "@/lib/daily";
-
-const INITIAL_LINES = 8;
-const REVEAL_STEP = 5;
+import {
+  loadDifficulty,
+  getDifficultyConfig,
+  Difficulty,
+} from "@/lib/difficulty";
+import { getHintForLanguage } from "@/lib/hints";
+import {
+  calcRoundScore,
+  calcRevealBatches,
+  calcConfidencePercent,
+} from "@/lib/score";
+import { decodeChallenge } from "@/lib/challenge";
+import { recordArchiveEntry, loadArchive, saveArchive } from "@/lib/archive";
+import { recordWeeklyScore, loadWeeklyState, saveWeeklyState } from "@/lib/weekly";
 
 type DailySnippet = Snippet & { puzzle?: number };
 
@@ -26,55 +38,143 @@ export default function GamePage() {
   const [snippet, setSnippet] = useState<DailySnippet | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [revealedCount, setRevealedCount] = useState(INITIAL_LINES);
+  const [difficulty, setDifficulty] = useState<Difficulty>("normal");
+  const [initialLines, setInitialLines] = useState(8);
+  const [revealStep, setRevealStep] = useState(5);
+  const [revealedCount, setRevealedCount] = useState(8);
   const [revealUses, setRevealUses] = useState(0);
   const [showGuessPanel, setShowGuessPanel] = useState(false);
+  const [hintText, setHintText] = useState<string | null>(null);
+  const [hintUsed, setHintUsed] = useState(false);
+  const [langFilter, setLangFilter] = useState("");
+  const [challengeMeta, setChallengeMeta] = useState<{
+    challengerScore?: number;
+  } | null>(null);
+  const hintIndicesRef = useRef<number[]>([]);
 
-  const loadSnippet = useCallback(async (gameMode: "daily" | "practice") => {
-    setLoading(true);
-    setError(null);
-    setRevealedCount(INITIAL_LINES);
-    setRevealUses(0);
-    setShowGuessPanel(false);
-    setSnippet(null);
+  const loadSnippet = useCallback(
+    async (
+      gameMode: "daily" | "practice",
+      opts?: { puzzle?: number; lang?: string; encoded?: string }
+    ) => {
+      setLoading(true);
+      setError(null);
+      setShowGuessPanel(false);
+      setHintText(null);
+      setHintUsed(false);
+      hintIndicesRef.current = [];
+      setSnippet(null);
 
-    try {
-      const endpoint = gameMode === "daily" ? "/api/daily" : "/api/snippet";
-      const res = await fetch(endpoint);
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? `HTTP ${res.status}`);
+      const diff = loadDifficulty();
+      const cfg = getDifficultyConfig(diff);
+      setDifficulty(diff);
+      setInitialLines(cfg.initialLines);
+      setRevealStep(cfg.revealStep);
+      setRevealedCount(cfg.initialLines);
+      setRevealUses(0);
+
+      try {
+        if (opts?.encoded) {
+          const payload = decodeChallenge(opts.encoded);
+          if (!payload) throw new Error("Invalid challenge link");
+          setSnippet(payload.snippet);
+          setChallengeMeta({ challengerScore: payload.challengerScore });
+          setMode("practice");
+          return;
+        }
+
+        if (gameMode === "daily") {
+          const q = opts?.puzzle ? `?puzzle=${opts.puzzle}` : "";
+          const res = await fetch(`/api/daily${q}`);
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error ?? `HTTP ${res.status}`);
+          }
+          const data: DailySnippet = await res.json();
+          setSnippet(data);
+          if (typeof caches !== "undefined") {
+            caches.open("repoguessr-daily-v1").then((cache) => {
+              cache.put("/api/daily-today", new Response(JSON.stringify(data)));
+            });
+          }
+        } else {
+          const params = new URLSearchParams();
+          if (opts?.lang) params.set("lang", opts.lang);
+          const res = await fetch(
+            `/api/snippet${params.toString() ? `?${params}` : ""}`
+          );
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error ?? `HTTP ${res.status}`);
+          }
+          const data: DailySnippet = await res.json();
+          setSnippet(data);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error");
+      } finally {
+        setLoading(false);
       }
-      const data: DailySnippet = await res.json();
-      setSnippet(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const encoded = params.get("snippet");
+    if (encoded) {
+      loadSnippet("practice", { encoded });
+      return;
+    }
     const m = params.get("mode") === "daily" ? "daily" : "practice";
+    const puzzleParam = params.get("puzzle");
+    const puzzle = puzzleParam ? parseInt(puzzleParam, 10) : undefined;
+    const lang = params.get("lang") ?? "";
+    setLangFilter(lang);
     setMode(m);
-    loadSnippet(m);
+    loadSnippet(m, { puzzle, lang: lang || undefined });
   }, [loadSnippet]);
+
+  const cfg = getDifficultyConfig(difficulty);
+  const langOptions =
+    cfg.languages === "all" ? ALL_LANGUAGES : [...cfg.languages];
 
   function handleReveal() {
     if (!snippet) return;
-    const next = Math.min(revealedCount + REVEAL_STEP, snippet.lines.length);
+    const next = Math.min(revealedCount + revealStep, snippet.lines.length);
     setRevealedCount(next);
     setRevealUses((u) => u + 1);
+  }
+
+  function handleHint() {
+    if (!snippet || hintUsed) return;
+    const hint = getHintForLanguage(snippet.language, hintIndicesRef.current);
+    hintIndicesRef.current.push(hintIndicesRef.current.length);
+    setHintText(hint);
+    setHintUsed(true);
   }
 
   function handleSubmit(guesses: Guesses) {
     if (!snippet) return;
 
     const actual = { language: snippet.language, framework: snippet.framework };
-    const badges = calcRoundBadges(guesses, actual, revealedCount);
+    const badges = calcRoundBadges(
+      guesses,
+      actual,
+      revealedCount,
+      initialLines,
+      revealStep
+    );
+
+    const revealBatches = calcRevealBatches(
+      revealedCount,
+      initialLines,
+      revealStep
+    );
+    const diffCfg = getDifficultyConfig(difficulty);
 
     let dailyStreak: number | null = null;
+    let roundScore = 0;
 
     if (mode === "daily" && snippet.puzzle) {
       const langCorrect = isLanguageCorrect(guesses.language, snippet.language);
@@ -82,6 +182,26 @@ export default function GamePage() {
         snippet.framework === null
           ? null
           : isFrameworkCorrect(guesses.framework, snippet.framework);
+
+      const prev = loadDailyState();
+      const today = snippet.puzzle;
+      const projectedStreak =
+        prev.lastPlayedPuzzle === today
+          ? prev.currentStreak
+          : prev.lastPlayedPuzzle === today - 1
+          ? prev.currentStreak + 1
+          : 1;
+
+      roundScore = calcRoundScore({
+        languageGuess: guesses.language,
+        frameworkGuess: guesses.framework,
+        actualLanguage: snippet.language,
+        actualFramework: snippet.framework,
+        revealBatches,
+        hintUsed,
+        difficultyMultiplier: diffCfg.scoreMultiplier,
+        dailyStreak: projectedStreak,
+      });
 
       const dailyResult: DailyResult = {
         puzzle: snippet.puzzle,
@@ -92,12 +212,30 @@ export default function GamePage() {
         badges,
       };
 
-      const prev = loadDailyState();
       const next = recordDailyCompletion(prev, dailyResult);
-      try {
-        localStorage.setItem("repoguessr_daily", JSON.stringify(next));
-      } catch {}
+      saveDailyState(next);
       dailyStreak = next.currentStreak;
+
+      const archive = recordArchiveEntry(
+        loadArchive(),
+        snippet.puzzle,
+        roundScore
+      );
+      saveArchive(archive);
+
+      const weekly = recordWeeklyScore(loadWeeklyState(), roundScore);
+      saveWeeklyState(weekly);
+    } else {
+      roundScore = calcRoundScore({
+        languageGuess: guesses.language,
+        frameworkGuess: guesses.framework,
+        actualLanguage: snippet.language,
+        actualFramework: snippet.framework,
+        revealBatches,
+        hintUsed,
+        difficultyMultiplier: diffCfg.scoreMultiplier,
+        dailyStreak: null,
+      });
     }
 
     try {
@@ -112,6 +250,13 @@ export default function GamePage() {
           mode,
           puzzle: snippet.puzzle ?? null,
           dailyStreak,
+          roundScore,
+          hintUsed,
+          initialLines,
+          revealStep,
+          difficulty,
+          challengeMeta,
+          newMilestones: [],
         })
       );
     } catch {}
@@ -119,15 +264,44 @@ export default function GamePage() {
     router.push("/result");
   }
 
+  useEffect(() => {
+    if (loading || showGuessPanel || !snippet) return;
+    const total = snippet.lines.length;
+    const step = revealStep;
+
+    function onKey(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === " " || e.key === "Spacebar") {
+        e.preventDefault();
+        setRevealedCount((prev) => {
+          const rem = total - prev;
+          if (rem <= 0) return prev;
+          const next = Math.min(prev + step, total);
+          if (next > prev) setRevealUses((u) => u + 1);
+          return next;
+        });
+      } else if (e.key === "g" || e.key === "G") {
+        e.preventDefault();
+        setShowGuessPanel(true);
+      }
+    }
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [loading, showGuessPanel, snippet, revealStep]);
+
   const totalLines = snippet?.lines.length ?? 40;
   const remaining = totalLines - revealedCount;
-  const progressPct = Math.min(100, (revealedCount / totalLines) * 100);
+  const confidence = calcConfidencePercent(revealedCount, totalLines);
   const revealLabel =
     remaining <= 0
       ? "ALL LINES REVEALED"
-      : remaining < REVEAL_STEP
+      : remaining < revealStep
       ? `REVEAL ${remaining} MORE`
       : "REVEAL 5 MORE";
+
+  const showFrameworkField =
+    !!snippet?.framework && cfg.showFramework;
 
   if (loading) {
     return (
@@ -141,7 +315,7 @@ export default function GamePage() {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center gap-8 px-6">
         <p className="body-type text-[#9A9A9A]">Could not fetch snippet.</p>
-        <Button variant="ghost" size="lg" onClick={() => loadSnippet(mode)}>
+        <Button variant="ghost" size="lg" onClick={() => loadSnippet(mode, { lang: langFilter || undefined })}>
           RETRY
         </Button>
       </main>
@@ -168,33 +342,37 @@ export default function GamePage() {
               <span className="label text-[#9A9A9A] shrink-0">PRACTICE</span>
             )}
             <div className="flex-1" />
-            <p className="body-type text-[#9A9A9A] shrink-0 tabular-nums">
-              Reveals{" "}
-              <span className="text-white">{revealUses}</span>
+            <p className="label text-[#9A9A9A] shrink-0 tabular-nums">
+              {confidence}% CONFIDENCE
             </p>
           </div>
 
+          {hintText && (
+            <p className="body-type text-[#9A9A9A] mb-3 border-l border-[#9A9A9A] pl-4">
+              {hintText}
+            </p>
+          )}
+
           <div className="flex flex-col gap-2">
-            <div className="flex items-baseline justify-between gap-4">
-              <p className="body-type text-[#9A9A9A]">
-                Lines revealed
-              </p>
-              <p className="body-type tabular-nums">
-                <span className="stat-type text-white">{revealedCount}</span>
-                <span className="text-[#9A9A9A]"> / {totalLines}</span>
-              </p>
-            </div>
-            <div className="h-1 bg-[#1a1a1a] rounded-full overflow-hidden">
+            <div className="h-px bg-[#1a1a1a] w-full overflow-hidden">
               <div
-                className="h-full bg-[#9A9A9A] transition-all duration-300"
-                style={{ width: `${progressPct}%` }}
+                className="h-full bg-white transition-all duration-300"
+                style={{ width: `${confidence}%` }}
               />
+            </div>
+            <div className="flex items-baseline justify-between gap-4">
+              <p className="label text-[#9A9A9A]">
+                {revealedCount} / {totalLines} LINES
+              </p>
+              <p className="label text-[#9A9A9A] tabular-nums">
+                REVEALS <span className="text-white">{revealUses}</span>
+              </p>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="pt-[8.5rem] pb-36 px-6 max-w-3xl mx-auto">
+      <main className="pt-[9.5rem] pb-40 px-6 max-w-3xl mx-auto">
         <CodeBlock
           lines={snippet.lines}
           revealedCount={revealedCount}
@@ -205,7 +383,20 @@ export default function GamePage() {
       {!showGuessPanel && (
         <footer className="fixed bottom-0 left-0 right-0 z-40">
           <div className="max-w-3xl mx-auto px-6 pb-6">
+            <p className="label text-[#9A9A9A] text-center mb-2 hidden md:block [@media(hover:none)]:hidden">
+              SPACE REVEAL · G GUESS
+            </p>
             <div className="bg-[#050505] border border-[#1a1a1a] rounded-lg p-4 flex flex-col sm:flex-row gap-3">
+              {!hintUsed && (
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  onClick={handleHint}
+                  className="sm:w-auto"
+                >
+                  HINT
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="lg"
@@ -230,7 +421,10 @@ export default function GamePage() {
 
       <GuessPanel
         visible={showGuessPanel}
-        showFramework={!!snippet.framework}
+        showFramework={showFrameworkField}
+        requireFramework={cfg.requireFramework && showFrameworkField}
+        languages={langOptions}
+        freeTextLanguage={cfg.freeTextLanguage}
         onSubmit={handleSubmit}
         onDismiss={() => setShowGuessPanel(false)}
       />

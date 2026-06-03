@@ -195,9 +195,14 @@ async function fetchFrameworkFromPackageJson(
   return null;
 }
 
-export async function fetchRandomSnippet(): Promise<Snippet> {
+export async function fetchRandomSnippet(
+  languageFilter?: string
+): Promise<Snippet> {
   const octokit = getOctokit();
-  const language = randomItem(LANGUAGES);
+  const language =
+    languageFilter && LANGUAGES.includes(languageFilter)
+      ? languageFilter
+      : randomItem(LANGUAGES);
 
   // Search for repos with >100 stars in this language
   const searchRes = await octokit.rest.search.repos({

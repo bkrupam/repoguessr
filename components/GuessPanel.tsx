@@ -5,7 +5,7 @@ import Button from "./Button";
 import Select from "./Select";
 import { FRAMEWORK_LABELS } from "@/lib/frameworks";
 
-const LANGUAGES = [
+export const ALL_LANGUAGES = [
   "JavaScript",
   "TypeScript",
   "Python",
@@ -25,6 +25,9 @@ export interface Guesses {
 interface GuessPanelProps {
   visible: boolean;
   showFramework: boolean;
+  requireFramework?: boolean;
+  languages?: string[];
+  freeTextLanguage?: boolean;
   onSubmit: (guesses: Guesses) => void;
   onDismiss: () => void;
 }
@@ -32,6 +35,9 @@ interface GuessPanelProps {
 export default function GuessPanel({
   visible,
   showFramework,
+  requireFramework = false,
+  languages = ALL_LANGUAGES,
+  freeTextLanguage = false,
   onSubmit,
   onDismiss,
 }: GuessPanelProps) {
@@ -58,8 +64,9 @@ export default function GuessPanel({
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!language) return;
-    onSubmit({ language, framework });
+    if (!language.trim()) return;
+    if (requireFramework && !framework.trim()) return;
+    onSubmit({ language: language.trim(), framework });
   }
 
   return (
@@ -111,12 +118,23 @@ export default function GuessPanel({
             <form onSubmit={handleSubmit} className="flex flex-col gap-8">
               <div className="flex flex-col gap-3">
                 <label className="label text-[#9A9A9A]">LANGUAGE</label>
-                <Select
-                  value={language}
-                  onChange={setLanguage}
-                  options={LANGUAGES}
-                  placeholder="Select language"
-                />
+                {freeTextLanguage ? (
+                  <input
+                    type="text"
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                    autoComplete="off"
+                    placeholder="Type language name"
+                    className="body-type w-full bg-transparent border border-[#9A9A9A] text-white px-4 py-4 rounded-lg focus:outline-none focus:border-white transition-colors placeholder:text-[#9A9A9A]"
+                  />
+                ) : (
+                  <Select
+                    value={language}
+                    onChange={setLanguage}
+                    options={languages}
+                    placeholder="Select language"
+                  />
+                )}
               </div>
 
               {showFramework && (
@@ -139,7 +157,16 @@ export default function GuessPanel({
                 </div>
               )}
 
-              <Button variant="primary" type="submit" size="lg" disabled={!language} className="w-full">
+              <Button
+                variant="primary"
+                type="submit"
+                size="lg"
+                disabled={
+                  !language.trim() ||
+                  (requireFramework && !framework.trim())
+                }
+                className="w-full"
+              >
                 SUBMIT GUESS
               </Button>
             </form>

@@ -29,6 +29,9 @@ export interface CumulativeStats {
   frameworksCorrect: string[]; // distinct frameworks correctly guessed
   eightLineWins: number; // times language was correct with 0 reveals
   unlockedMilestones: Milestone[];
+  totalScore: number;
+  totalReveals: number;
+  languageAttempts: Record<string, { correct: number; total: number }>;
 }
 
 export const DEFAULT_STATS: CumulativeStats = {
@@ -37,6 +40,9 @@ export const DEFAULT_STATS: CumulativeStats = {
   frameworksCorrect: [],
   eightLineWins: 0,
   unlockedMilestones: [],
+  totalScore: 0,
+  totalReveals: 0,
+  languageAttempts: {},
 };
 
 // ─── Per-round ────────────────────────────────────────────────────────────────
@@ -68,13 +74,18 @@ export function isFrameworkCorrect(
 export function calcRoundBadges(
   guesses: RoundGuesses,
   actual: RoundActual,
-  linesRevealed: number // total lines visible when submitted (e.g. 8, 13, 18…)
+  linesRevealed: number, // total lines visible when submitted
+  initialLines: number = 8,
+  revealStep: number = 5
 ): Badge[] {
   const badges: Badge[] = [];
 
   const langOk = isLanguageCorrect(guesses.language, actual.language);
   const fwOk = isFrameworkCorrect(guesses.framework, actual.framework);
-  const revealCount = Math.floor((linesRevealed - 8) / 5); // 0 if no reveals
+  const revealCount =
+    linesRevealed <= initialLines
+      ? 0
+      : Math.ceil((linesRevealed - initialLines) / revealStep);
 
   if (langOk) badges.push("LINGUIST");
 
@@ -97,11 +108,23 @@ export function calcRoundBadges(
 
 export function updateStats(
   stats: CumulativeStats,
-  round: { guesses: RoundGuesses; actual: RoundActual; linesRevealed: number }
+  round: {
+    guesses: RoundGuesses;
+    actual: RoundActual;
+    linesRevealed: number;
+    initialLines?: number;
+    revealStep?: number;
+    roundScore?: number;
+  }
 ): CumulativeStats {
   const langOk = isLanguageCorrect(round.guesses.language, round.actual.language);
   const fwOk = isFrameworkCorrect(round.guesses.framework, round.actual.framework);
-  const revealCount = Math.floor((round.linesRevealed - 8) / 5);
+  const initial = round.initialLines ?? 8;
+  const step = round.revealStep ?? 5;
+  const revealCount =
+    round.linesRevealed <= initial
+      ? 0
+      : Math.ceil((round.linesRevealed - initial) / step);
 
   const updatedLangs = langOk
     ? Array.from(new Set([...stats.languagesCorrect, round.actual.language]))
@@ -112,13 +135,43 @@ export function updateStats(
       ? Array.from(new Set([...stats.frameworksCorrect, round.actual.framework]))
       : stats.frameworksCorrect;
 
+  const lang = round.actual.language;
+  const attempts = { ...(stats.languageAttempts ?? {}) };
+  const prev = attempts[lang] ?? { correct: 0, total: 0 };
+  attempts[lang] = {
+    correct: prev.correct + (langOk ? 1 : 0),
+    total: prev.total + 1,
+  };
+
   return {
     gamesPlayed: stats.gamesPlayed + 1,
     languagesCorrect: updatedLangs,
     frameworksCorrect: updatedFws,
     eightLineWins: langOk && revealCount === 0 ? stats.eightLineWins + 1 : stats.eightLineWins,
-    unlockedMilestones: stats.unlockedMilestones, // updated by checkMilestones
+    unlockedMilestones: stats.unlockedMilestones,
+    totalScore: (stats.totalScore ?? 0) + (round.roundScore ?? 0),
+    totalReveals: (stats.totalReveals ?? 0) + revealCount,
+    languageAttempts: attempts,
   };
+}
+
+export function statsAccuracy(stats: CumulativeStats): number {
+  if (stats.gamesPlayed === 0) return 0;
+  const langs = stats.languageAttempts ?? {};
+  let correct = 0;
+  let total = 0;
+  for (const v of Object.values(langs)) {
+    correct += v.correct;
+    total += v.total;
+  }
+  if (total === 0) return 0;
+  return Math.round((correct / total) * 100);
+}
+
+export function avgReveals(stats: CumulativeStats): string {
+  if (stats.gamesPlayed === 0) return "—";
+  const avg = (stats.totalReveals ?? 0) / stats.gamesPlayed;
+  return avg.toFixed(1);
 }
 
 export function checkMilestones(

@@ -4,21 +4,19 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CodeBlock from "@/components/CodeBlock";
-import BadgeGrid from "@/components/BadgeGrid";
 import ShareCard from "@/components/ShareCard";
 import Button from "@/components/Button";
 import RepoCard from "@/components/RepoCard";
 import {
   Badge,
-  Milestone,
+  BADGE_LABELS,
   CumulativeStats,
   DEFAULT_STATS,
   updateStats,
-  checkMilestones,
-  checkPerfectionist,
   isLanguageCorrect,
   isFrameworkCorrect,
 } from "@/lib/badges";
+import { getRank, getRankProgress, RankProgress } from "@/lib/ranks";
 import { Snippet } from "@/lib/github";
 import { Guesses } from "@/components/GuessPanel";
 import {
@@ -46,13 +44,13 @@ interface ResultData {
   difficulty?: Difficulty;
   challengeMeta?: { challengerScore?: number } | null;
   elapsedMs?: number;
-  newMilestones?: Milestone[];
 }
 
 export default function ResultPage() {
   const router = useRouter();
   const [result, setResult] = useState<ResultData | null>(null);
-  const [newMilestones, setNewMilestones] = useState<Milestone[]>([]);
+  const [rankProgress, setRankProgress] = useState<RankProgress | null>(null);
+  const [rankUp, setRankUp] = useState(false);
   const [countdown, setCountdown] = useState("");
   const [challengeCopied, setChallengeCopied] = useState(false);
   const [challengeLoading, setChallengeLoading] = useState(false);
@@ -83,6 +81,7 @@ export default function ResultPage() {
         const prev: CumulativeStats = raw
           ? { ...DEFAULT_STATS, ...JSON.parse(raw) }
           : { ...DEFAULT_STATS };
+        const prevRank = getRank(prev.totalScore ?? 0);
         const next = updateStats(prev, {
           guesses: data.guesses,
           actual: {
@@ -94,21 +93,17 @@ export default function ResultPage() {
           revealStep: data.revealStep,
           roundScore: data.roundScore ?? 0,
         });
-        const unlocked = checkMilestones(prev, next);
-        if (
-          checkPerfectionist(data.roundBadges) &&
-          !prev.unlockedMilestones.includes("PERFECTIONIST")
-        ) {
-          unlocked.push("PERFECTIONIST");
-        }
-        next.unlockedMilestones = Array.from(
-          new Set([...prev.unlockedMilestones, ...unlocked])
-        );
+        const nextRank = getRank(next.totalScore ?? 0);
         localStorage.setItem("repoguessr_stats", JSON.stringify(next));
         localStorage.setItem("repoguessr_last_result", String(data.resultId));
-        setNewMilestones(unlocked);
-        data.newMilestones = unlocked;
-        sessionStorage.setItem("repoguessr_result", JSON.stringify(data));
+        setRankProgress(getRankProgress(next.totalScore ?? 0));
+        setRankUp(nextRank.id !== prevRank.id);
+      } else {
+        const raw = localStorage.getItem("repoguessr_stats");
+        const stats: CumulativeStats = raw
+          ? { ...DEFAULT_STATS, ...JSON.parse(raw) }
+          : { ...DEFAULT_STATS };
+        setRankProgress(getRankProgress(stats.totalScore ?? 0));
       }
     } catch {}
   }, [router]);
@@ -178,7 +173,7 @@ export default function ResultPage() {
           linesRevealed,
           elapsedMs: result.elapsedMs ?? 0,
           roundBadges,
-          newMilestones,
+          rank: rankProgress?.rank.label,
           puzzle: result.puzzle,
           score: roundScore,
           streak: dailyStreak,
@@ -311,21 +306,63 @@ export default function ResultPage() {
           )}
         </div>
 
-        {(roundBadges.length > 0 || newMilestones.length > 0) && (
-          <div className="py-8 border-b border-[#1a1a1a]">
-            <BadgeGrid
-              roundBadges={roundBadges}
-              newMilestones={newMilestones}
-              showAll={false}
-            />
-            {newMilestones.length > 0 && (
-              <Link
-                href="/milestones"
-                className="label text-[#9A9A9A] hover:text-white transition-colors mt-4 inline-block"
-              >
-                VIEW ALL MILESTONES →
-              </Link>
+        {rankProgress && (
+          <div className="py-8 border-b border-[#1a1a1a] flex flex-col gap-4">
+            {rankUp && (
+              <p className="label text-white border border-white rounded-lg px-4 py-3 inline-block w-fit">
+                RANK UP — {rankProgress.rank.label}
+              </p>
             )}
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+              <div className="flex items-center gap-4">
+                <span className="text-[2rem] leading-none text-white" aria-hidden>
+                  {rankProgress.rank.icon}
+                </span>
+                <div className="flex flex-col gap-1">
+                  <p className="label text-[#9A9A9A]">RANK</p>
+                  <p className="body-type text-white">{rankProgress.rank.label}</p>
+                </div>
+              </div>
+              <p className="body-type text-[#9A9A9A] tabular-nums">
+                +{roundScore.toLocaleString()} pts this round
+              </p>
+            </div>
+            {!rankProgress.isMaxRank && rankProgress.nextRank && (
+              <>
+                <div className="h-1 w-full bg-[#1a1a1a] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-white transition-all duration-500"
+                    style={{ width: `${rankProgress.percent}%` }}
+                  />
+                </div>
+                <p className="label text-[#9A9A9A] tabular-nums">
+                  {rankProgress.pointsToNext.toLocaleString()} pts to{" "}
+                  {rankProgress.nextRank.label}
+                </p>
+              </>
+            )}
+            <Link
+              href="/ranks"
+              className="label text-[#9A9A9A] hover:text-white transition-colors inline-block"
+            >
+              VIEW ALL RANKS →
+            </Link>
+          </div>
+        )}
+
+        {roundBadges.length > 0 && (
+          <div className="py-8 border-b border-[#1a1a1a]">
+            <p className="label text-[#9A9A9A] mb-3">THIS ROUND</p>
+            <div className="flex flex-wrap gap-2">
+              {roundBadges.map((b) => (
+                <span
+                  key={b}
+                  className="label inline-block px-3 py-2 border border-[#9A9A9A] rounded-lg text-white"
+                >
+                  {BADGE_LABELS[b]}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 

@@ -1,4 +1,4 @@
-import { Badge, Milestone, BADGE_LABELS, MILESTONE_LABELS } from "./badges";
+import { Badge, BADGE_LABELS } from "./badges";
 
 export function formatRoundDuration(ms: number): string {
   const totalSec = Math.max(1, Math.round(ms / 1000));
@@ -15,7 +15,7 @@ export interface ShareImageParams {
   linesRevealed: number;
   elapsedMs: number;
   roundBadges: Badge[];
-  newMilestones: Milestone[];
+  rank?: string;
   puzzle?: number | null;
   score?: number;
   streak?: number | null;
@@ -39,7 +39,6 @@ export function buildShareImageUrl(
   }
   const badges = params.roundBadges.map((b) => BADGE_LABELS[b]).join("|");
   if (badges) q.set("badges", badges);
-  const milestones = params.newMilestones.map((m) => MILESTONE_LABELS[m]).join("|");
-  if (milestones) q.set("milestones", milestones);
+  if (params.rank) q.set("rank", params.rank);
   return `${origin}/api/og?${q.toString()}`;
 }

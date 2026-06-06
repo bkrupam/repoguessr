@@ -1,6 +1,6 @@
 interface HubPageShellProps {
   children: React.ReactNode;
-  /** Wider shell for milestones list */
+  /** Wider shell for ranks list */
   wide?: boolean;
 }
 

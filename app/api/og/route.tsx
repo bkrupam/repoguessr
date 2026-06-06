@@ -96,12 +96,9 @@ export async function GET(request: NextRequest) {
   const score = searchParams.get("score");
   const streak = searchParams.get("streak");
   const badgesRaw = searchParams.get("badges") ?? "";
-  const milestonesRaw = searchParams.get("milestones") ?? "";
+  const rank = searchParams.get("rank") ?? "";
 
   const badges = badgesRaw ? badgesRaw.split("|").filter(Boolean).slice(0, 4) : [];
-  const milestones = milestonesRaw
-    ? milestonesRaw.split("|").filter(Boolean).slice(0, 3)
-    : [];
 
   const guessUp = guess.toUpperCase();
   const actualUp = actual.toUpperCase();
@@ -262,8 +259,8 @@ export async function GET(request: NextRequest) {
               </div>
             </div>
 
-            {/* Badges + milestones */}
-            {(badges.length > 0 || milestones.length > 0) && (
+            {/* Badges + rank */}
+            {(badges.length > 0 || rank) && (
               <div
                 style={{
                   display: "flex",
@@ -302,35 +299,31 @@ export async function GET(request: NextRequest) {
                   </div>
                 )}
 
-                {milestones.length > 0 && (
+                {rank ? (
                   <div
                     style={{
                       display: "flex",
                       flexDirection: "row",
                       alignItems: "center",
                       gap: 10,
-                      flexWrap: "wrap",
                     }}
                   >
-                    <Label>NEW</Label>
-                    {milestones.map((m) => (
-                      <div
-                        key={m}
-                        style={{
-                          display: "flex",
-                          fontFamily: MONO,
-                          fontSize: 13,
-                          letterSpacing: "0.1em",
-                          color: "#000000",
-                          backgroundColor: FG,
-                          padding: "10px 16px",
-                        }}
-                      >
-                        {m}
-                      </div>
-                    ))}
+                    <Label>RANK</Label>
+                    <div
+                      style={{
+                        display: "flex",
+                        fontFamily: MONO,
+                        fontSize: 13,
+                        letterSpacing: "0.1em",
+                        color: "#000000",
+                        backgroundColor: FG,
+                        padding: "10px 16px",
+                      }}
+                    >
+                      {rank}
+                    </div>
                   </div>
-                )}
+                ) : null}
               </div>
             )}
 

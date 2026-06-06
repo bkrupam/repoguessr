@@ -46,7 +46,6 @@ export default function GamePage() {
   const [showGuessPanel, setShowGuessPanel] = useState(false);
   const [hintText, setHintText] = useState<string | null>(null);
   const [hintUsed, setHintUsed] = useState(false);
-  const [langFilter, setLangFilter] = useState("");
   const [challengeMeta, setChallengeMeta] = useState<{
     challengerScore?: number;
   } | null>(null);
@@ -174,10 +173,8 @@ export default function GamePage() {
     const m = params.get("mode") === "daily" ? "daily" : "practice";
     const puzzleParam = params.get("puzzle");
     const puzzle = puzzleParam ? parseInt(puzzleParam, 10) : undefined;
-    const lang = params.get("lang") ?? "";
-    setLangFilter(lang);
     setMode(m);
-    loadSnippet(m, { puzzle, lang: lang || undefined });
+    loadSnippet(m, { puzzle });
   }, [loadSnippet]);
 
   const cfg = getDifficultyConfig(difficulty);
@@ -306,7 +303,6 @@ export default function GamePage() {
           difficulty,
           challengeMeta,
           elapsedMs,
-          newMilestones: [],
         })
       );
     } catch {}
@@ -365,7 +361,7 @@ export default function GamePage() {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center gap-8 px-6">
         <p className="body-type text-[#9A9A9A]">Could not fetch snippet.</p>
-        <Button variant="ghost" size="lg" onClick={() => loadSnippet(mode, { lang: langFilter || undefined })}>
+        <Button variant="ghost" size="lg" onClick={() => loadSnippet(mode)}>
           RETRY
         </Button>
       </main>

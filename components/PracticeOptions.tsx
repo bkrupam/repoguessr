@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Select from "@/components/Select";
 import {
   Difficulty,
   DIFFICULTY_CONFIGS,
@@ -9,42 +8,7 @@ import {
   saveDifficulty,
 } from "@/lib/difficulty";
 
-const LANGUAGE_OPTIONS = [
-  "All languages",
-  "Python",
-  "JavaScript",
-  "TypeScript",
-  "Rust",
-  "Go",
-  "Ruby",
-  "Java",
-] as const;
-
-const LANGUAGE_TO_ID: Record<string, string> = {
-  "All languages": "",
-  Python: "Python",
-  JavaScript: "JavaScript",
-  TypeScript: "TypeScript",
-  Rust: "Rust",
-  Go: "Go",
-  Ruby: "Ruby",
-  Java: "Java",
-};
-
-function languageLabel(id: string): string {
-  if (!id) return "All languages";
-  return id;
-}
-
-interface PracticeOptionsProps {
-  lang: string;
-  onLangChange: (id: string) => void;
-}
-
-export default function PracticeOptions({
-  lang,
-  onLangChange,
-}: PracticeOptionsProps) {
+export default function PracticeOptions() {
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
 
   useEffect(() => {
@@ -87,20 +51,6 @@ export default function PracticeOptions({
               </button>
             </span>
           ))}
-        </div>
-      </div>
-
-      <div className="h-px bg-[#1a1a1a]" aria-hidden />
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="label text-[#9A9A9A] shrink-0">LANGUAGE</p>
-        <div className="w-full sm:max-w-[14rem] sm:ml-auto">
-          <Select
-            value={languageLabel(lang)}
-            onChange={(label) => onLangChange(LANGUAGE_TO_ID[label] ?? "")}
-            options={[...LANGUAGE_OPTIONS]}
-            placeholder="All languages"
-          />
         </div>
       </div>
     </div>

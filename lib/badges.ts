@@ -5,14 +5,6 @@ export type Badge =
   | "SPEED_READER"
   | "COLD_CALL";
 
-export type Milestone =
-  | "EXPLORER"
-  | "VETERAN"
-  | "POLYGLOT"
-  | "FRAMEWORK_MASTER"
-  | "HAWK_EYE"
-  | "PERFECTIONIST";
-
 export interface RoundGuesses {
   language: string;
   framework: string; // empty string if skipped
@@ -28,7 +20,6 @@ export interface CumulativeStats {
   languagesCorrect: string[]; // distinct languages correctly guessed
   frameworksCorrect: string[]; // distinct frameworks correctly guessed
   eightLineWins: number; // times language was correct with 0 reveals
-  unlockedMilestones: Milestone[];
   totalScore: number;
   totalReveals: number;
   languageAttempts: Record<string, { correct: number; total: number }>;
@@ -39,7 +30,6 @@ export const DEFAULT_STATS: CumulativeStats = {
   languagesCorrect: [],
   frameworksCorrect: [],
   eightLineWins: 0,
-  unlockedMilestones: [],
   totalScore: 0,
   totalReveals: 0,
   languageAttempts: {},
@@ -148,7 +138,6 @@ export function updateStats(
     languagesCorrect: updatedLangs,
     frameworksCorrect: updatedFws,
     eightLineWins: langOk && revealCount === 0 ? stats.eightLineWins + 1 : stats.eightLineWins,
-    unlockedMilestones: stats.unlockedMilestones,
     totalScore: (stats.totalScore ?? 0) + (round.roundScore ?? 0),
     totalReveals: (stats.totalReveals ?? 0) + revealCount,
     languageAttempts: attempts,
@@ -174,36 +163,6 @@ export function avgReveals(stats: CumulativeStats): string {
   return avg.toFixed(1);
 }
 
-export function checkMilestones(
-  prev: CumulativeStats,
-  next: CumulativeStats
-): Milestone[] {
-  const newlyUnlocked: Milestone[] = [];
-  const already = new Set(prev.unlockedMilestones);
-
-  function check(m: Milestone, condition: boolean) {
-    if (!already.has(m) && condition) newlyUnlocked.push(m);
-  }
-
-  check("EXPLORER", next.gamesPlayed >= 5);
-  check("VETERAN", next.gamesPlayed >= 25);
-  check("POLYGLOT", next.languagesCorrect.length >= 5);
-  check("FRAMEWORK_MASTER", next.frameworksCorrect.length >= 3);
-  check("HAWK_EYE", next.eightLineWins >= 3);
-
-  // PERFECTIONIST: LINGUIST + ARCHITECT + MINIMALIST in one round
-  // Checked separately via the round badges passed to the result page
-  return newlyUnlocked;
-}
-
-export function checkPerfectionist(badges: Badge[]): boolean {
-  return (
-    badges.includes("LINGUIST") &&
-    badges.includes("ARCHITECT") &&
-    badges.includes("MINIMALIST")
-  );
-}
-
 // ─── Display helpers ──────────────────────────────────────────────────────────
 
 export const BADGE_LABELS: Record<Badge, string> = {
@@ -212,41 +171,4 @@ export const BADGE_LABELS: Record<Badge, string> = {
   MINIMALIST: "MINIMALIST",
   SPEED_READER: "SPEED READER",
   COLD_CALL: "COLD CALL",
-};
-
-export const MILESTONE_LABELS: Record<Milestone, string> = {
-  EXPLORER: "EXPLORER",
-  VETERAN: "VETERAN",
-  POLYGLOT: "POLYGLOT",
-  FRAMEWORK_MASTER: "FRAMEWORK MASTER",
-  HAWK_EYE: "HAWK EYE",
-  PERFECTIONIST: "PERFECTIONIST",
-};
-
-export const MILESTONE_DESCRIPTIONS: Record<Milestone, string> = {
-  EXPLORER: "5 games played",
-  VETERAN: "25 games played",
-  POLYGLOT: "5 distinct languages identified",
-  FRAMEWORK_MASTER: "3 distinct frameworks identified",
-  HAWK_EYE: "3× correct language in 8 lines",
-  PERFECTIONIST: "Language + framework + no reveals in one round",
-};
-
-/** Canonical display order for all milestones */
-export const ALL_MILESTONES: Milestone[] = [
-  "EXPLORER",
-  "POLYGLOT",
-  "HAWK_EYE",
-  "FRAMEWORK_MASTER",
-  "PERFECTIONIST",
-  "VETERAN",
-];
-
-export const MILESTONE_ICONS: Record<Milestone, string> = {
-  EXPLORER: "◎",
-  POLYGLOT: "∞",
-  HAWK_EYE: "◉",
-  FRAMEWORK_MASTER: "⬡",
-  PERFECTIONIST: "◆",
-  VETERAN: "△",
 };

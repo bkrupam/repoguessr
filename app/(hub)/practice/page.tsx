@@ -1,17 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import Button from "@/components/Button";
 import HubPageShell from "@/components/HubPageShell";
 import HubVisual from "@/components/HubVisual";
 import PracticeOptions from "@/components/PracticeOptions";
 
 export default function PracticePage() {
-  const [lang, setLang] = useState("");
-
-  const gameHref = lang ? `/game?lang=${encodeURIComponent(lang)}` : "/game";
-
   return (
     <HubPageShell>
       <HubVisual variant="practice" />
@@ -26,10 +21,10 @@ export default function PracticePage() {
       </header>
 
       <div className="w-full mb-8">
-        <PracticeOptions lang={lang} onLangChange={setLang} />
+        <PracticeOptions />
       </div>
 
-      <Link href={gameHref} className="w-full">
+      <Link href="/game" className="w-full">
         <Button variant="primary" size="lg" className="w-full">
           START PRACTICE ROUND
         </Button>

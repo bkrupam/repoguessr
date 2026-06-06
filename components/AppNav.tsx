@@ -2,16 +2,32 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { DEFAULT_STATS } from "@/lib/badges";
+import { getRank } from "@/lib/ranks";
 
 const NAV = [
   { href: "/daily", label: "DAILY" },
   { href: "/practice", label: "PRACTICE" },
   { href: "/archive", label: "ARCHIVE" },
-  { href: "/milestones", label: "MILESTONES" },
+  { href: "/ranks", label: "RANKS" },
 ] as const;
 
 export default function AppNav() {
   const pathname = usePathname() ?? "";
+  const [rankLabel, setRankLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("repoguessr_stats");
+      const totalScore = raw
+        ? ({ ...DEFAULT_STATS, ...JSON.parse(raw) }.totalScore ?? 0)
+        : 0;
+      setRankLabel(getRank(totalScore).label);
+    } catch {
+      setRankLabel(getRank(0).label);
+    }
+  }, [pathname]);
 
   return (
     <header className="sticky top-0 z-50 bg-black border-b border-[#1a1a1a]">
@@ -23,6 +39,22 @@ export default function AppNav() {
         <nav className="flex items-center gap-2" aria-label="Main">
           {NAV.map(({ href, label }) => {
             const active = pathname === href || pathname.startsWith(`${href}/`);
+            const isRank = href === "/ranks";
+            const displayLabel = isRank ? (rankLabel ?? label) : label;
+
+            if (isRank) {
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={active ? "page" : undefined}
+                  className="label px-3 py-1.5 rounded-lg bg-white text-black transition-opacity hover:opacity-90"
+                >
+                  {displayLabel}
+                </Link>
+              );
+            }
+
             return (
               <Link
                 key={href}
@@ -33,7 +65,7 @@ export default function AppNav() {
                     : "text-[#9A9A9A] border-transparent hover:text-white hover:border-[#9A9A9A]"
                 }`}
               >
-                {label}
+                {displayLabel}
               </Link>
             );
           })}
